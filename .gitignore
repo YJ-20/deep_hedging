@@ -1,0 +1,12 @@
+data/
+etc/
+odl/
+codes/model/
+codes/log/
+codes/logs/
+codes/outputs/
+codes/tf_log/
+codes/sh_files/
+/codes/numbers.txt
+codes/numbers.txt
+*.pkl
