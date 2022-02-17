@@ -4,6 +4,7 @@ import sys
 import torch
 import torch.nn.functional as F
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from agent import MVPITD3Agent
 from utils import Config
@@ -181,8 +182,18 @@ class Checking_mvpitd3():
 
         return network_fn    
     
-    def visualize(self, reward_list, total_sum_array, total_mean_array, total_std_array, total_delta_pnl_array):
+    def visualize(self, trial_no, lam, ckp_list, sum_list, mean_list, std_list, sharpe_list):
         # to do: plt.savefig() 이용해서 ./visualization/ 에다가 visualize 하기
+        ckp_list_cleared = [int(x.split('.')[0]) for x in ckp_list]
+        df = pd.DataFrame({'ckp':ckp_list_cleared, 'sum':sum_list, 'mean':mean_list, 'std':std_list, 'sharpe':sharpe_list})
+        df.sort_values(by=['ckp'])
+        df.set_index('ckp', inplace=True)
+        saveDir = './outputs/images/'
+        os.makedirs(saveDir, exist_ok=True)
+        for column in list(df.columns):
+            plt.clf()
+            df[column].plot()
+            plt.savefig(saveDir + f't{trial_no}_lam{lam}_{column}.png')
         pass
     
     def check(self, trial_list, vis=True):
@@ -193,7 +204,7 @@ class Checking_mvpitd3():
             previous_cfg = ''
             for file in file_list:
                 last_dash = file.rfind('-')+1
-                current_cfg = file[:last_dash+1]
+                current_cfg = file[:last_dash]
                 if not previous_cfg or previous_cfg != current_cfg:
                     print('#'*50, 'set new config', '#'*50)
                     # init ckpFile_list, std_list, previous_cfg
@@ -201,6 +212,7 @@ class Checking_mvpitd3():
                     std_list = []  # for select best ckp
                     sum_list = []
                     mean_list = []
+                    sharpe_list= []
                     ckp_list = []
                     previous_cfg = current_cfg
                     config = self.create_config(file)
@@ -265,20 +277,28 @@ class Checking_mvpitd3():
                     std_list.append(total_std_array.mean())
                     sum_list.append(total_sum_array.mean())
                     mean_list.append(total_mean_array.mean())
+                    sharpe_list.append(total_mean_array.mean()/total_std_array.mean())
                     ckp_list.append(ckp)
                 # select best model
                 lowest_std = min(std_list)
-                best_index = std_list.index(lowest_std)
+                largest_sharpe = max(sharpe_list)
+                best_std_index = std_list.index(lowest_std)
+                best_shrp_index = sharpe_list.index(largest_sharpe)
                 print('trial_no: ', trial_no, config.hedging_task, config.nn_model, config.history_len, config.burnin_len, config.lstm_inputsize, config.lstm_hiddensize)
                 print('lambda: ', config.lam)
+                print('%'*100)
                 print('lowest std: ', lowest_std)
-                print('best model: ', ckp_list[best_index])
-                print('sum, mean, std: ', sum_list[best_index], mean_list[best_index], std_list[best_index])
+                print('best_std model: ', ckp_list[best_std_index])
+                print('sum, mean, std: ', sum_list[best_std_index], mean_list[best_std_index], std_list[best_std_index], sharpe_list[best_std_index])
+                print('%'*100)
+                print('largest sharpe: ', largest_sharpe)
+                print('best_shrp model: ', ckp_list[best_shrp_index])
+                print('sum, mean, std: ', sum_list[best_shrp_index], mean_list[best_shrp_index], std_list[best_shrp_index], sharpe_list[best_shrp_index])
                 print('finished this config', '\n', '\n', '\n')
         
                 # visualization - savefig
-                # if vis:
-                #     self.visualize(reward_list, total_sum_array, total_mean_array, total_std_array, total_delta_pnl_array)
+                if vis:
+                    self.visualize(trial_no, config.lam, ckp_list, sum_list, mean_list, std_list, sharpe_list)
 
 
 if __name__ == "__main__":
